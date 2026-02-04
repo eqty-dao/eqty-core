@@ -10,6 +10,8 @@ let ethersContract: Contract;
 let client: AnchorClient<any>;
 let anchorSpy: ReturnType<typeof vi.fn>;
 let maxAnchorsSpy: ReturnType<typeof vi.fn>;
+let getEthFeeSpy: ReturnType<typeof vi.fn>;
+let previewEthCostSpy: ReturnType<typeof vi.fn>;
 
 describe("AnchorClient with ethers", () => {
   const key = Binary.fromHex("11".repeat(32));
@@ -17,12 +19,18 @@ describe("AnchorClient with ethers", () => {
 
   beforeEach(() => {
     ethersContract = new Contract(DUMMY_ADDRESS, AnchorClient.ABI);
-    anchorSpy = vi.fn(async (_anchors: Array<{ key: `0x${string}`; value: `0x${string}` }>) => ({ hash: "0xdeadbeef" } as any));
+    anchorSpy = vi.fn(async (_anchors: Array<{ key: `0x${string}`; value: `0x${string}` }>, _options?: { value?: bigint }) => ({ hash: "0xdeadbeef" } as any));
     maxAnchorsSpy = vi.fn(async () => 16n);
+    getEthFeeSpy = vi.fn(async () => 1000000000000000n); // 0.001 ETH
+    previewEthCostSpy = vi.fn(async (numAnchors: number) => BigInt(numAnchors) * 1000000000000000n);
     // @ts-expect-error override for testing
     ethersContract.anchor = anchorSpy;
     // @ts-expect-error override for testing
     ethersContract.maxAnchors = maxAnchorsSpy;
+    // @ts-expect-error override for testing
+    ethersContract.getEthFee = getEthFeeSpy;
+    // @ts-expect-error override for testing
+    ethersContract.previewEthCost = previewEthCostSpy;
     client = new AnchorClient(ethersContract);
   });
 
@@ -68,6 +76,54 @@ describe("AnchorClient with ethers", () => {
       expect(args[0].key).toBe(new Binary(key).hex);
       expect(args[0].value).toMatch(/^0x0{64}$/);
     });
+
+    it("calls ethers.Contract.anchor with ETH value option", async () => {
+      const ethValue = 1000000000000000n; // 0.001 ETH
+      await client.anchor(key, value, { ethValue });
+      expect(anchorSpy).toHaveBeenCalledTimes(1);
+      const [anchors, options] = anchorSpy.mock.calls[0];
+      expect(anchors).toHaveLength(1);
+      expect(options).toEqual({ value: ethValue });
+    });
+
+    it("calls ethers.Contract.anchor with ETH value for array input", async () => {
+      const ethValue = 2000000000000000n; // 0.002 ETH
+      await client.anchor([{ key, value }], { ethValue });
+      expect(anchorSpy).toHaveBeenCalledTimes(1);
+      const [anchors, options] = anchorSpy.mock.calls[0];
+      expect(anchors).toHaveLength(1);
+      expect(options).toEqual({ value: ethValue });
+    });
+
+    it("calls ethers.Contract.anchor without ETH value when not provided", async () => {
+      await client.anchor([{ key, value }]);
+      expect(anchorSpy).toHaveBeenCalledTimes(1);
+      const [, options] = anchorSpy.mock.calls[0];
+      expect(options).toEqual({});
+    });
+  });
+
+  describe("getEthFee", () => {
+    it("returns ETH fee per anchor as bigint", async () => {
+      const fee = await client.getEthFee();
+      expect(getEthFeeSpy).toHaveBeenCalledTimes(1);
+      expect(fee).toBe(1000000000000000n);
+    });
+  });
+
+  describe("previewEthCost", () => {
+    it("returns total ETH cost for multiple anchors", async () => {
+      const cost = await client.previewEthCost(5);
+      expect(previewEthCostSpy).toHaveBeenCalledTimes(1);
+      expect(previewEthCostSpy).toHaveBeenCalledWith(5);
+      expect(cost).toBe(5000000000000000n); // 5 * 0.001 ETH
+    });
+
+    it("returns zero for zero anchors", async () => {
+      previewEthCostSpy.mockResolvedValueOnce(0n);
+      const cost = await client.previewEthCost(0);
+      expect(cost).toBe(0n);
+    });
   });
 
   describe("getMaxAnchors", () => {
@@ -78,3 +134,4 @@ describe("AnchorClient with ethers", () => {
     });
   });
 });
+
