@@ -35,7 +35,7 @@ export default class Binary extends Uint8Array implements IBinary {
   }
 
   get dataView(): DataView {
-    return new DataView(this.buffer);
+    return new DataView(this.buffer, this.byteOffset, this.byteLength);
   }
 
   hash(): Binary {

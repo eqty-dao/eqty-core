@@ -119,7 +119,7 @@ export default class Message {
     if (this.signature) throw new Error("Message is already signed");
 
     this.sender = await sender.getAddress();
-    this.timestamp = Date.now();
+    this.timestamp = Math.floor(Date.now() / 1000);
 
     const { domain, types, value } = this.getSignData();
     const signature: string = await sender.signTypedData(domain, types, value);
@@ -150,26 +150,28 @@ export default class Message {
   }
 
   private toBinaryV3(withSignature = true): Uint8Array {
+    const metaBytes = Binary.from(JSON.stringify(this.meta));
+    const mediaTypeBytes = Binary.from(this.mediaType);
+    const senderBytes = this.sender ? Binary.from(this.sender) : new Binary(0);
+    const recipientBytes = this.recipient ? Binary.from(this.recipient) : new Binary(0);
+
     const parts: Uint8Array[] = [
-      Binary.fromInt32(this.version),
-      Binary.from(JSON.stringify(this.meta)),
-      Binary.from(this.mediaType),
-      this.data,
+      Binary.fromInt32(this.version),            // 4 bytes
+      Binary.fromInt16(metaBytes.length),         // 2 bytes length prefix
+      metaBytes,                                  // variable
+      Binary.fromInt16(mediaTypeBytes.length),    // 2 bytes length prefix
+      mediaTypeBytes,                             // variable
+      Binary.fromInt32(this.data.length),          // 4 bytes length prefix
+      this.data,                                  // variable
+      Binary.fromInt32(Math.floor((this.timestamp || 0) / 1000)), // 4 bytes (unix seconds)
+      Uint8Array.from([senderBytes.length]),       // 1 byte length prefix
+      senderBytes,                                // variable (42 for 0x address)
+      Uint8Array.from([recipientBytes.length]),    // 1 byte length prefix
+      recipientBytes,                             // variable
     ];
 
-    if (this.timestamp) {
-      parts.push(Binary.fromInt32(this.timestamp));
-    }
-
-    if (this.sender) {
-      parts.push(Binary.from(this.sender));
-    }
-
-    if (this.recipient) {
-      parts.push(Binary.from(this.recipient));
-    }
-
     if (withSignature && this.signature) {
+      parts.push(Uint8Array.from([this.signature.length]));  // 1 byte length prefix
       parts.push(this.signature);
     }
 
@@ -226,81 +228,85 @@ export default class Message {
   }
 
   private static fromBinary(data: Uint8Array): Message {
-    const message = new Message("", "text/plain");
+    const bin = new Binary(data);
+    const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+    if (bin.length < 4 + 2 + 2 + 4 + 4 + 1 + 1) {
+      throw new Error("Invalid message binary: too short");
+    }
+
     let offset = 0;
 
-    // Parse version
-    message.version = data[offset++];
+    // Parse version (4 bytes int32 BE)
+    const version = dv.getInt32(offset, false);
+    offset += 4;
 
-    if (message.version !== MESSAGE_V3) {
-      throw new Error(`Message version ${message.version} not supported`);
+    if (version !== MESSAGE_V3) {
+      throw new Error(`Message version ${version} not supported`);
     }
 
-    // Parse meta type
-    const typeLength = data[offset++];
-    const typeBytes = data.slice(offset, offset + typeLength);
-    message.meta.type = new TextDecoder().decode(typeBytes);
-    offset += typeLength;
-
-    // Parse title
-    const titleLength = data[offset++];
-    const titleBytes = data.slice(offset, offset + titleLength);
-    message.meta.title = new TextDecoder().decode(titleBytes);
-    offset += titleLength;
-
-    // Parse description (2 bytes for length)
-    const descLength = (data[offset] << 8) | data[offset + 1];
+    // Parse meta (2 bytes length prefix + JSON string)
+    const metaLen = dv.getUint16(offset, false);
     offset += 2;
-    const descBytes = data.slice(offset, offset + descLength);
-    message.meta.description = new TextDecoder().decode(descBytes);
-    offset += descLength;
+    if (offset + metaLen > bin.length) throw new Error("Invalid message binary: meta out of bounds");
+    const metaStr = new TextDecoder().decode(data.slice(offset, offset + metaLen));
+    offset += metaLen;
 
-    // Parse media type
-    const mediaTypeLength = (data[offset] << 8) | data[offset + 1];
+    let meta: IMessageMeta;
+    try {
+      meta = JSON.parse(metaStr);
+    } catch {
+      throw new Error("Invalid message binary: meta is not valid JSON");
+    }
+
+    // Parse mediaType (2 bytes length prefix + string)
+    const mediaTypeLen = dv.getUint16(offset, false);
     offset += 2;
-    const mediaTypeBytes = data.slice(offset, offset + mediaTypeLength);
-    message.mediaType = new TextDecoder().decode(mediaTypeBytes);
-    offset += mediaTypeLength;
+    if (offset + mediaTypeLen > bin.length) throw new Error("Invalid message binary: mediaType out of bounds");
+    const mediaType = new TextDecoder().decode(data.slice(offset, offset + mediaTypeLen));
+    offset += mediaTypeLen;
 
-    // Parse data
-    const dataLength =
-      (data[offset] << 24) |
-      (data[offset + 1] << 16) |
-      (data[offset + 2] << 8) |
-      data[offset + 3];
+    // Parse data (4 bytes length prefix + bytes)
+    const dataLen = dv.getUint32(offset, false);
     offset += 4;
-    message.data = new Binary(data.slice(offset, offset + dataLength));
-    offset += dataLength;
+    if (offset + dataLen > bin.length) throw new Error("Invalid message binary: data out of bounds");
+    const payload = new Binary(data.slice(offset, offset + dataLen));
+    offset += dataLen;
 
-    // Parse timestamp
-    const timestampBytes = data.slice(offset, offset + 8);
-    message.timestamp = Number(
-      new DataView(
-        timestampBytes.buffer,
-        timestampBytes.byteOffset,
-        8
-      ).getBigUint64(0, false)
-    );
-    offset += 8;
+    // Parse timestamp (4 bytes int32 BE, unix seconds)
+    const timestampSeconds = dv.getInt32(offset, false);
+    offset += 4;
 
-    // Parse sender address
-    const senderLength = data[offset++];
-    const senderBytes = data.slice(offset, offset + senderLength);
-    message.sender = new TextDecoder().decode(senderBytes);
-    offset += senderLength;
+    // Parse sender (1 byte length prefix + string)
+    const senderLen = data[offset++];
+    const sender = senderLen > 0
+      ? new TextDecoder().decode(data.slice(offset, offset + senderLen))
+      : undefined;
+    offset += senderLen;
 
-    // Parse recipient address
-    const recipientLength = data[offset++];
-    const recipientBytes = data.slice(offset, offset + recipientLength);
-    message.recipient = new TextDecoder().decode(recipientBytes);
-    offset += recipientLength;
+    // Parse recipient (1 byte length prefix + string)
+    const recipientLen = data[offset++];
+    const recipient = recipientLen > 0
+      ? new TextDecoder().decode(data.slice(offset, offset + recipientLen))
+      : undefined;
+    offset += recipientLen;
 
     // Parse signature if present
-    if (offset < data.length) {
-      const signatureLength = data[offset++];
-      const signatureBytes = data.slice(offset, offset + signatureLength);
-      message.signature = new Binary(signatureBytes);
+    let signature: Binary | undefined;
+    if (offset < bin.length) {
+      const sigLen = data[offset++];
+      if (sigLen > 0 && offset + sigLen <= bin.length) {
+        signature = new Binary(data.slice(offset, offset + sigLen));
+        offset += sigLen;
+      }
     }
+
+    const message = new Message(payload, mediaType, meta);
+    message.version = version;
+    message.timestamp = timestampSeconds > 0 ? timestampSeconds * 1000 : undefined;
+    message.sender = sender;
+    message.recipient = recipient;
+    message.signature = signature;
 
     return message;
   }

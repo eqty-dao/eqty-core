@@ -194,7 +194,7 @@ export default class Event {
   }
 
   async signWith(signer: ISigner): Promise<void> {
-    if (!this.timestamp) this.timestamp = Date.now();
+    if (!this.timestamp) this.timestamp = Math.floor(Date.now() / 1000);
     if (!this.signerAddress) this.signerAddress = await signer.getAddress();
 
     const { domain, types, value } = this.getSignData();
