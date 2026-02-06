@@ -295,7 +295,7 @@ Represents a message with optional metadata that can be signed and anchored.
 class Message {
   constructor(data: any, mediaType?: string, meta?: IMessageMeta);
 
-  hash(): Uint8Array;
+  get hash(): Binary;
   to(recipient: string): Message;
 
   // Signing & verification
@@ -304,15 +304,15 @@ class Message {
   async verifySignature(verify: VerifyFn): Promise<boolean>;
   verifyHash(): boolean;
 
-  // Binary/JSON
+  // Serialization
+  toBinary(withSignature?: boolean): Uint8Array;
   toJSON(): IMessageJSON;
-  static fromJSON(json: IMessageJSON): Message;
-  static fromBinary(data: Uint8Array): Message;
+  static from(data: IMessageJSON | Uint8Array): Message;
 }
 ```
 
 #### AnchorClient
-Interfaces with the Base Anchor smart contract. You pass in a contract adapter that implements anchor() and maxAnchors().
+Interfaces with the Base Anchor smart contract. You pass in a contract adapter that implements `anchor()` and `MAX_ANCHORS_PER_TX()`.
 
 ```typescript
 class AnchorClient<T> {
@@ -322,13 +322,21 @@ class AnchorClient<T> {
   constructor(contract: AnchorContract<T>);
 
   // Anchor 1 or many entries (Uint8Array inputs)
-  anchor(input: Array<{ key: Uint8Array; value: Uint8Array }>): Promise<T>;
-  anchor(key: Uint8Array, value: Uint8Array): Promise<T>;
-  anchor(value: Array<Uint8Array>): Promise<T>;
-  anchor(value: Uint8Array): Promise<T>;
+  anchor(input: Array<{ key: Uint8Array; value: Uint8Array }>, options?: AnchorOptions): Promise<T>;
+  anchor(key: Uint8Array, value: Uint8Array, options?: AnchorOptions): Promise<T>;
+  anchor(value: Array<Uint8Array>, options?: AnchorOptions): Promise<T>;
+  anchor(value: Uint8Array, options?: AnchorOptions): Promise<T>;
+
+  // ETH payment
+  getEthFee(): Promise<bigint>;
+  previewEthCost(numAnchors: number): Promise<bigint>;
 
   // Limits
   getMaxAnchors(): Promise<number>;
+}
+
+interface AnchorOptions {
+  ethValue?: bigint; // ETH to send with anchor transaction (in wei)
 }
 ```
 
@@ -375,8 +383,8 @@ class ViemSigner<T extends IViemAccount> implements ISigner {
 
 class ViemContract<T extends IViemAccount> {
   constructor(publicClient: IViemPublicClient, walletClient: IViemWalletClient<T>, address: `0x${string}`);
-  anchor(anchors: Array<{ key: `0x${string}`; value: `0x${string}` }>): Promise<void>;
-  maxAnchors(): Promise<number>;
+  anchor(anchors: Array<{ key: `0x${string}`; value: `0x${string}` }>): Promise<string>;
+  MAX_ANCHORS_PER_TX(): Promise<number>;
 }
 ```
 

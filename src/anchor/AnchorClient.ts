@@ -91,7 +91,7 @@ export default class AnchorClient<T> {
    * Get the maximum number of anchors allowed per transaction
    */
   async getMaxAnchors(): Promise<number> {
-    const value = await this.contract.maxAnchors();
+    const value = await this.contract.MAX_ANCHORS_PER_TX();
     return Number(value);
   }
 

@@ -26,7 +26,7 @@ describe("AnchorClient with ethers", () => {
     // @ts-expect-error override for testing
     ethersContract.anchor = anchorSpy;
     // @ts-expect-error override for testing
-    ethersContract.maxAnchors = maxAnchorsSpy;
+    ethersContract.MAX_ANCHORS_PER_TX = maxAnchorsSpy;
     // @ts-expect-error override for testing
     ethersContract.getEthFee = getEthFeeSpy;
     // @ts-expect-error override for testing

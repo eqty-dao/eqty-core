@@ -40,7 +40,7 @@ export default class ViemAnchorContract {
     }
   }
 
-  async maxAnchorsPerTx(): Promise<number> {
+  async MAX_ANCHORS_PER_TX(): Promise<number> {
     return await this.client.readContract({
       address: this.address,
       abi: AnchorClient.ABI,

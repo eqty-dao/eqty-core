@@ -24,7 +24,7 @@ function createBinaryMessage(options: {
     meta = { type: "basic", title: "", description: "" },
     mediaType = "text/plain",
     data = new TextEncoder().encode("payload"),
-    timestamp = Date.now(),
+    timestamp = Math.floor(Date.now() / 1000),
     sender = "0xSender",
     recipient = "0xRecipient",
     signatureHex = hexSignature,
@@ -33,51 +33,47 @@ function createBinaryMessage(options: {
   const encoder = new TextEncoder();
   const parts: Uint8Array[] = [];
 
-  parts.push(Uint8Array.of(version));
+  // Version: 4 bytes int32 BE
+  const versionBytes = new Uint8Array(4);
+  new DataView(versionBytes.buffer).setInt32(0, version, false);
+  parts.push(versionBytes);
 
-  const typeBytes = encoder.encode(meta.type);
-  parts.push(Uint8Array.of(typeBytes.length));
-  parts.push(typeBytes);
+  // Meta: 2-byte length prefix + JSON string
+  const metaStr = encoder.encode(JSON.stringify(meta));
+  const metaLenBytes = new Uint8Array(2);
+  new DataView(metaLenBytes.buffer).setUint16(0, metaStr.length, false);
+  parts.push(metaLenBytes);
+  parts.push(metaStr);
 
-  const titleBytes = encoder.encode(meta.title);
-  parts.push(Uint8Array.of(titleBytes.length));
-  parts.push(titleBytes);
-
-  const descriptionBytes = encoder.encode(meta.description);
-  parts.push(
-    Uint8Array.of((descriptionBytes.length >> 8) & 0xff, descriptionBytes.length & 0xff)
-  );
-  parts.push(descriptionBytes);
-
+  // MediaType: 2-byte length prefix + string
   const mediaTypeBytes = encoder.encode(mediaType);
-  parts.push(
-    Uint8Array.of((mediaTypeBytes.length >> 8) & 0xff, mediaTypeBytes.length & 0xff)
-  );
+  const mediaTypeLenBytes = new Uint8Array(2);
+  new DataView(mediaTypeLenBytes.buffer).setUint16(0, mediaTypeBytes.length, false);
+  parts.push(mediaTypeLenBytes);
   parts.push(mediaTypeBytes);
 
-  const dataLength = data.length;
-  parts.push(
-    Uint8Array.of(
-      (dataLength >> 24) & 0xff,
-      (dataLength >> 16) & 0xff,
-      (dataLength >> 8) & 0xff,
-      dataLength & 0xff,
-    )
-  );
+  // Data: 4-byte length prefix + bytes
+  const dataLenBytes = new Uint8Array(4);
+  new DataView(dataLenBytes.buffer).setUint32(0, data.length, false);
+  parts.push(dataLenBytes);
   parts.push(data);
 
-  const timestampBytes = new Uint8Array(8);
-  new DataView(timestampBytes.buffer).setBigUint64(0, BigInt(timestamp), false);
+  // Timestamp: 4 bytes int32 BE (unix seconds)
+  const timestampBytes = new Uint8Array(4);
+  new DataView(timestampBytes.buffer).setInt32(0, timestamp, false);
   parts.push(timestampBytes);
 
+  // Sender: 1-byte length prefix + string
   const senderBytes = encoder.encode(sender);
   parts.push(Uint8Array.of(senderBytes.length));
   parts.push(senderBytes);
 
+  // Recipient: 1-byte length prefix + string
   const recipientBytes = encoder.encode(recipient);
   parts.push(Uint8Array.of(recipientBytes.length));
   parts.push(recipientBytes);
 
+  // Signature: 1-byte length prefix + bytes (optional)
   if (signatureHex) {
     const signatureBytes = Binary.fromHex(signatureHex);
     parts.push(Uint8Array.of(signatureBytes.length));
@@ -263,7 +259,9 @@ describe("Message", () => {
   });
 
   it("throws for unsupported binary version", () => {
-    const binary = Uint8Array.of(2, 0, 0, 0);
+    // Must be at least 18 bytes to pass minimum length check (4+2+2+4+4+1+1)
+    const binary = new Uint8Array(18);
+    new DataView(binary.buffer).setInt32(0, 2, false); // version = 2
 
     expect(() => Message.from(binary)).toThrow("Message version 2 not supported");
   });

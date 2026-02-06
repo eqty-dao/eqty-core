@@ -163,7 +163,7 @@ export default class Message {
       mediaTypeBytes,                             // variable
       Binary.fromInt32(this.data.length),          // 4 bytes length prefix
       this.data,                                  // variable
-      Binary.fromInt32(Math.floor((this.timestamp || 0) / 1000)), // 4 bytes (unix seconds)
+      Binary.fromInt32(this.timestamp || 0),                      // 4 bytes (unix seconds)
       Uint8Array.from([senderBytes.length]),       // 1 byte length prefix
       senderBytes,                                // variable (42 for 0x address)
       Uint8Array.from([recipientBytes.length]),    // 1 byte length prefix
@@ -303,7 +303,7 @@ export default class Message {
 
     const message = new Message(payload, mediaType, meta);
     message.version = version;
-    message.timestamp = timestampSeconds > 0 ? timestampSeconds * 1000 : undefined;
+    message.timestamp = timestampSeconds > 0 ? timestampSeconds : undefined;
     message.sender = sender;
     message.recipient = recipient;
     message.signature = signature;
