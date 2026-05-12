@@ -1,4 +1,4 @@
-import { keccak_256 } from "@noble/hashes/sha3";
+import { keccak_256 } from "@noble/hashes/sha3.js";
 import { base58, base64, hex } from "@scure/base";
 
 import { IBinary } from "./types";

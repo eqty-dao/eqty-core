@@ -3,37 +3,31 @@
  */
 export const ANCHOR_ABI = [
   {
+    type: "function",
+    name: "anchor",
     inputs: [
       {
         components: [
-          { name: "key", type: "bytes32" },
-          { name: "value", type: "bytes32" },
+          { name: "key", type: "bytes32", internalType: "bytes32" },
+          { name: "value", type: "bytes32", internalType: "bytes32" },
         ],
         name: "anchors",
         type: "tuple[]",
+        internalType: "struct IAnchor.Anchor[]",
       },
     ],
-    name: "anchor",
     outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
+    stateMutability: "payable",
   },
   {
-    inputs: [],
-    name: "maxAnchors",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, name: "key", type: "bytes32" },
-      { indexed: false, name: "value", type: "bytes32" },
-      { indexed: true, name: "sender", type: "address" },
-      { indexed: false, name: "timestamp", type: "uint64" },
-    ],
-    name: "Anchored",
     type: "event",
+    name: "Anchored",
+    inputs: [
+      { name: "key", type: "bytes32", indexed: true, internalType: "bytes32" },
+      { name: "value", type: "bytes32", indexed: false, internalType: "bytes32" },
+      { name: "sender", type: "address", indexed: true, internalType: "address" },
+      { name: "timestamp", type: "uint64", indexed: false, internalType: "uint64" },
+    ],
+    anonymous: false,
   },
 ] as const;

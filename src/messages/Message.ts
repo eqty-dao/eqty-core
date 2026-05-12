@@ -144,7 +144,7 @@ export default class Message {
     try {
       const computedHash = new Binary(this.toBinary(false)).hash();
       return this.hash.hex === computedHash.hex;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

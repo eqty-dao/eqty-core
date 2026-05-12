@@ -1,6 +1,6 @@
-import { sha256 } from "@noble/hashes/sha2";
-import { keccak_256 } from "@noble/hashes/sha3";
-import { randomBytes } from "@noble/hashes/utils";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { keccak_256 } from "@noble/hashes/sha3.js";
+import { randomBytes } from "@noble/hashes/utils.js";
 import Event from "./Event";
 import Binary from "../Binary";
 import MergeConflict from "./MergeConflict"
