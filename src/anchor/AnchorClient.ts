@@ -1,11 +1,5 @@
 import Binary from "../Binary";
-import {
-  BASE_ANCHOR_CONTRACT,
-  BASE_CHAIN_ID,
-  BASE_SEPOLIA_ANCHOR_CONTRACT,
-  BASE_SEPOLIA_CHAIN_ID,
-  ZERO_HASH
-} from "../constants";
+import { ZERO_HASH } from "../constants";
 import type { AnchorTxOptions } from "../types";
 import { ANCHOR_ABI } from "./AnchorABI";
 import { isBinary } from "../utils/bytes"
@@ -57,17 +51,5 @@ export default class AnchorClient<T> {
     }
 
     return await this.contract.anchor(anchors, options);
-  }
-
-  /**
-   * Get the anchor contract address
-   */
-  static contractAddress(networkId: number): `0x${string}` {
-    switch (networkId) {
-      case BASE_CHAIN_ID: return BASE_ANCHOR_CONTRACT;
-      case BASE_SEPOLIA_CHAIN_ID: return BASE_SEPOLIA_ANCHOR_CONTRACT;
-      default:
-        throw new Error(`Network ID ${networkId} is not supported`);
-    }
   }
 }

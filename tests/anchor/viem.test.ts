@@ -115,6 +115,7 @@ describe("AnchorClient with viem", () => {
     const simArgs = simulateSpy.mock.calls[0][0];
     expect(simArgs.value).toBe(ethFee);
     expect(writeSpy).toHaveBeenCalledTimes(1);
+    expect(writeSpy.mock.calls[0][0].value).toBe(ethFee);
   });
 
   it("keeps the key/value overload when tx options are provided as third argument", async () => {
@@ -129,5 +130,6 @@ describe("AnchorClient with viem", () => {
     ]);
     expect(simArgs.value).toBe(ethFee);
     expect(writeSpy).toHaveBeenCalledTimes(1);
+    expect(writeSpy.mock.calls[0][0].value).toBe(ethFee);
   });
 });

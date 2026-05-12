@@ -28,6 +28,8 @@ npm install eqty-core
 import { Event, EventChain, AnchorClient } from "eqty-core";
 import { BrowserProvider, verifyTypedData, Contract } from "ethers";
 
+const BASE_SEPOLIA_ANCHOR = "0x53c2bb8af1c082774b6615abbc969c627344d76d";
+
 // Connect to wallet
 const provider = new BrowserProvider(window.ethereum);
 const signer = await provider.getSigner();
@@ -46,7 +48,7 @@ await event.signWith(signer);
 
 // Create anchor client using the network-specific contract address
 const contract = new Contract(
-  AnchorClient.contractAddress(Number(networkId)),
+  BASE_SEPOLIA_ANCHOR,
   AnchorClient.ABI,
   signer,
 );
@@ -71,6 +73,8 @@ chain.validate((address, domain, types, value, signature) =>
 import { Message, AnchorClient } from "eqty-core";
 import { BrowserProvider, Contract } from "ethers";
 
+const BASE_SEPOLIA_ANCHOR = "0x53c2bb8af1c082774b6615abbc969c627344d76d";
+
 // Connect to wallet
 const provider = new BrowserProvider(window.ethereum);
 const signer = await provider.getSigner();
@@ -89,7 +93,7 @@ await message
 
 // Create anchor client
 const contract = new Contract(
-  AnchorClient.contractAddress(Number(networkId)),
+  BASE_SEPOLIA_ANCHOR,
   AnchorClient.ABI,
   signer,
 );
@@ -112,6 +116,8 @@ chain.validate((address, domain, types, value, signature) =>
 import { Event, EventChain, AnchorClient, ViemSigner, ViemContract } from "eqty-core";
 import { createWalletClient, createPublicClient, custom, recoverTypedDataAddress } from "viem";
 import { baseSepolia } from "viem/chains";
+
+const BASE_SEPOLIA_ANCHOR = "0x53c2bb8af1c082774b6615abbc969c627344d76d";
 
 // Request accounts and set up viem wallet client with an account
 const [address] = (await window.ethereum.request({ method: "eth_requestAccounts" })) as string[];
@@ -144,7 +150,7 @@ await event.signWith(signer);
 const contract = new ViemContract(
   publicClient,
   walletClient,
-  AnchorClient.contractAddress(networkId),
+  BASE_SEPOLIA_ANCHOR,
 );
 const anchorClient = new AnchorClient(contract as any);
 const ethFee = 1_000_000_000_000_000n; // Example only; compute this outside eqty-core
@@ -176,6 +182,8 @@ chain.validate(
 import { Message, AnchorClient, ViemSigner, ViemContract } from "eqty-core";
 import { createWalletClient, createPublicClient, custom } from "viem";
 import { baseSepolia } from "viem/chains";
+
+const BASE_SEPOLIA_ANCHOR = "0x53c2bb8af1c082774b6615abbc969c627344d76d";
 
 // Set up viem wallet/public clients
 const [address] = (await window.ethereum.request({ method: "eth_requestAccounts" })) as string[];
@@ -209,7 +217,7 @@ await message
 const contract = new ViemContract(
   publicClient,
   walletClient,
-  AnchorClient.contractAddress(networkId)
+  BASE_SEPOLIA_ANCHOR
 );
 const anchorClient = new AnchorClient(contract as any);
 
@@ -233,6 +241,69 @@ message.validate(
 ```
 
 ## API Reference
+
+## Anchor Contracts
+
+Use the deployed addresses from `eqty-contracts` when constructing your contract adapter.
+
+### Base Mainnet
+
+- EQTY token: `0xC71F37D9bF4C5d1E7Fe4bCcB97e6f30B11b37D29`
+- Anchor: pending deployment
+
+### Base Sepolia
+
+- EQTY token: `0x24159513a74ca294f5367764557438d318eb7ffe`
+- Anchor: `0x53c2bb8af1c082774b6615abbc969c627344d76d`
+
+## Paying Anchor Fees
+
+Anchor accepts payment in either EQTY or ETH. EQTY payment is typically cheaper. Fee discovery stays outside `eqty-core`; callers should determine the required EQTY amount or ETH `value` before calling `anchor()`.
+
+### Pay with EQTY
+
+Approve the Anchor contract to spend the required EQTY fee, then call `anchor()` normally.
+
+```typescript
+import { AnchorClient } from "eqty-core";
+import { BrowserProvider, Contract } from "ethers";
+
+const BASE_SEPOLIA_ANCHOR = "0x53c2bb8af1c082774b6615abbc969c627344d76d";
+const BASE_SEPOLIA_EQTY = "0x24159513a74ca294f5367764557438d318eb7ffe";
+const ERC20_ABI = [
+  "function approve(address spender, uint256 value) returns (bool)",
+];
+
+const provider = new BrowserProvider(window.ethereum);
+const signer = await provider.getSigner();
+
+const eqty = new Contract(BASE_SEPOLIA_EQTY, ERC20_ABI, signer);
+await eqty.approve(BASE_SEPOLIA_ANCHOR, eqtyFee);
+
+const anchorContract = new Contract(BASE_SEPOLIA_ANCHOR, AnchorClient.ABI, signer);
+const anchorClient = new AnchorClient(anchorContract as any);
+
+await anchorClient.anchor(chain.anchorMap());
+```
+
+### Pay with ETH
+
+Pass the ETH fee through as `value`.
+
+```typescript
+import { AnchorClient } from "eqty-core";
+import { BrowserProvider, Contract } from "ethers";
+
+const BASE_SEPOLIA_ANCHOR = "0x53c2bb8af1c082774b6615abbc969c627344d76d";
+
+const provider = new BrowserProvider(window.ethereum);
+const signer = await provider.getSigner();
+
+const anchorContract = new Contract(BASE_SEPOLIA_ANCHOR, AnchorClient.ABI, signer);
+const anchorClient = new AnchorClient(anchorContract as any);
+
+await anchorClient.anchor(chain.anchorMap(), { value: ethFee });
+```
 
 ### Core Classes
 
@@ -329,7 +400,6 @@ interface AnchorTxOptions {
 
 class AnchorClient<T> {
   static readonly ABI: any;
-  static contractAddress(networkId: number): `0x${string}`;
 
   constructor(contract: AnchorContract<T>);
 

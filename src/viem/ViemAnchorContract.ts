@@ -12,16 +12,19 @@ export default class ViemAnchorContract {
     anchors: Array<{ key: `0x${string}`; value: `0x${string}` }>,
     txOptions?: AnchorTxOptions
   ): Promise<string> {
+    const value = txOptions?.value;
     const { request } = await this.client.simulateContract({
       address: this.address,
       abi: AnchorClient.ABI,
       functionName: "anchor",
       args: [anchors],
       account: this.wallet.account!,
-      value: txOptions?.value,
+      value,
     });
 
-    const result = await this.wallet.writeContract(request);
+    const result = await this.wallet.writeContract(
+      value === undefined ? request : { ...request, value }
+    );
 
     // Handle different response formats
     if (typeof result === "string") {
