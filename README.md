@@ -51,9 +51,13 @@ const contract = new Contract(
   signer,
 );
 const anchorClient = new AnchorClient(contract as any);
+const ethFee = 1_000_000_000_000_000n; // Example only; compute this outside eqty-core
 
-// Anchor chain map
+// EQTY payment
 await anchorClient.anchor(chain.anchorMap());
+
+// ETH payment
+await anchorClient.anchor(chain.anchorMap(), { value: ethFee });
 
 // Validate a received event chain
 chain.validate((address, domain, types, value, signature) =>
@@ -143,9 +147,13 @@ const contract = new ViemContract(
   AnchorClient.contractAddress(networkId),
 );
 const anchorClient = new AnchorClient(contract as any);
+const ethFee = 1_000_000_000_000_000n; // Example only; compute this outside eqty-core
 
-// Anchor chain map
+// EQTY payment
 await anchorClient.anchor(chain.anchorMap());
+
+// ETH payment
+await anchorClient.anchor(chain.anchorMap(), { value: ethFee });
 
 // Validate a received event chain
 chain.validate(
@@ -312,9 +320,13 @@ class Message {
 ```
 
 #### AnchorClient
-Interfaces with the Base Anchor smart contract. You pass in a contract adapter that implements anchor() and maxAnchors().
+Interfaces with the Base Anchor smart contract. You pass in a contract adapter that implements `anchor()`.
 
 ```typescript
+interface AnchorTxOptions {
+  value?: bigint;
+}
+
 class AnchorClient<T> {
   static readonly ABI: any;
   static contractAddress(networkId: number): `0x${string}`;
@@ -322,13 +334,10 @@ class AnchorClient<T> {
   constructor(contract: AnchorContract<T>);
 
   // Anchor 1 or many entries (Uint8Array inputs)
-  anchor(input: Array<{ key: Uint8Array; value: Uint8Array }>): Promise<T>;
-  anchor(key: Uint8Array, value: Uint8Array): Promise<T>;
-  anchor(value: Array<Uint8Array>): Promise<T>;
-  anchor(value: Uint8Array): Promise<T>;
-
-  // Limits
-  getMaxAnchors(): Promise<number>;
+  anchor(input: Array<{ key: Uint8Array; value: Uint8Array }>, txOptions?: AnchorTxOptions): Promise<T>;
+  anchor(key: Uint8Array, value: Uint8Array, txOptions?: AnchorTxOptions): Promise<T>;
+  anchor(value: Array<Uint8Array>, txOptions?: AnchorTxOptions): Promise<T>;
+  anchor(value: Uint8Array, txOptions?: AnchorTxOptions): Promise<T>;
 }
 ```
 
@@ -375,8 +384,7 @@ class ViemSigner<T extends IViemAccount> implements ISigner {
 
 class ViemContract<T extends IViemAccount> {
   constructor(publicClient: IViemPublicClient, walletClient: IViemWalletClient<T>, address: `0x${string}`);
-  anchor(anchors: Array<{ key: `0x${string}`; value: `0x${string}` }>): Promise<void>;
-  maxAnchors(): Promise<number>;
+  anchor(anchors: Array<{ key: `0x${string}`; value: `0x${string}` }>, txOptions?: AnchorTxOptions): Promise<void>;
 }
 ```
 

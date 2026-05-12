@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { AnchorClient } from "../../src/anchor";
 import { ViemContract } from "../../src/viem";
 import Binary from "../../src/Binary";
+import type { AnchorTxOptions } from "../../src/types";
 import { Account, createPublicClient, createWalletClient, http, WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { PublicClient } from "viem"
@@ -19,11 +20,11 @@ let client: AnchorClient<any>;
 // Spies
 let simulateSpy: MockInstance;
 let writeSpy: MockInstance;
-let readSpy: MockInstance;
 
 describe("AnchorClient with viem", () => {
   const key = Binary.fromHex("11".repeat(32));
   const value = Binary.fromHex("22".repeat(32));
+  const ethFee = 42n;
 
   beforeEach(() => {
     // Create real viem clients
@@ -34,7 +35,6 @@ describe("AnchorClient with viem", () => {
     // Mock only the methods we use to avoid network calls
     // @ts-expect-error TS2345
     simulateSpy = vi.spyOn(publicClient, "simulateContract").mockImplementation(async (args: any) => ({ result: '0x123', request: args }));
-    readSpy = vi.spyOn(publicClient, "readContract").mockResolvedValue(16n);
     writeSpy = vi.spyOn(walletClient, "writeContract").mockResolvedValue("0xdeadbeef");
 
     const contract = new ViemContract(publicClient, walletClient, DUMMY_ADDRESS);
@@ -106,9 +106,28 @@ describe("AnchorClient with viem", () => {
     expect(writeSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("coerces bigint from viem readContract to number in getMaxAnchors", async () => {
-    const max = await client.getMaxAnchors();
-    expect(readSpy).toHaveBeenCalledTimes(1);
-    expect(max).toBe(16);
+  it("forwards tx options for ETH payment", async () => {
+    const txOptions: AnchorTxOptions = { value: ethFee };
+
+    await client.anchor([{ key, value }], txOptions);
+
+    expect(simulateSpy).toHaveBeenCalledTimes(1);
+    const simArgs = simulateSpy.mock.calls[0][0];
+    expect(simArgs.value).toBe(ethFee);
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the key/value overload when tx options are provided as third argument", async () => {
+    const txOptions: AnchorTxOptions = { value: ethFee };
+
+    await client.anchor(key, value, txOptions);
+
+    expect(simulateSpy).toHaveBeenCalledTimes(1);
+    const simArgs = simulateSpy.mock.calls[0][0];
+    expect(simArgs.args[0]).toEqual([
+      { key: new Binary(key).hex, value: new Binary(value).hex },
+    ]);
+    expect(simArgs.value).toBe(ethFee);
+    expect(writeSpy).toHaveBeenCalledTimes(1);
   });
 });

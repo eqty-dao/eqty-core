@@ -1,4 +1,7 @@
+export interface AnchorTxOptions {
+  value?: bigint;
+}
+
 export interface AnchorContract<T = any> {
-  anchor(anchors: { key: string; value: string }[]): Promise<T>;
-  maxAnchors(): Promise<bigint>;
+  anchor(anchors: { key: string; value: string }[], txOptions?: AnchorTxOptions): Promise<T>;
 }

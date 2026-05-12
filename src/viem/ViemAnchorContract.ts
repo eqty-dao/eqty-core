@@ -1,4 +1,5 @@
 import { AnchorClient } from "../anchor";
+import type { AnchorTxOptions } from "../types";
 
 export default class ViemAnchorContract {
   constructor(
@@ -8,7 +9,8 @@ export default class ViemAnchorContract {
   ) {}
 
   async anchor(
-    anchors: Array<{ key: `0x${string}`; value: `0x${string}` }>
+    anchors: Array<{ key: `0x${string}`; value: `0x${string}` }>,
+    txOptions?: AnchorTxOptions
   ): Promise<string> {
     const { request } = await this.client.simulateContract({
       address: this.address,
@@ -16,6 +18,7 @@ export default class ViemAnchorContract {
       functionName: "anchor",
       args: [anchors],
       account: this.wallet.account!,
+      value: txOptions?.value,
     });
 
     const result = await this.wallet.writeContract(request);
@@ -40,11 +43,4 @@ export default class ViemAnchorContract {
     }
   }
 
-  async maxAnchors(): Promise<number> {
-    return await this.client.readContract({
-      address: this.address,
-      abi: AnchorClient.ABI,
-      functionName: "maxAnchors",
-    });
-  }
 }

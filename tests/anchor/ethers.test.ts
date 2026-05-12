@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { Contract } from "ethers";
 import { AnchorClient } from "../../src/anchor";
 import Binary from "../../src/Binary";
+import type { AnchorTxOptions } from "../../src/types";
 
 // A dummy contract address (any 20-byte hex)
 const DUMMY_ADDRESS = "0x0000000000000000000000000000000000000001" as const;
@@ -9,20 +10,17 @@ const DUMMY_ADDRESS = "0x0000000000000000000000000000000000000001" as const;
 let ethersContract: Contract;
 let client: AnchorClient<any>;
 let anchorSpy: ReturnType<typeof vi.fn>;
-let maxAnchorsSpy: ReturnType<typeof vi.fn>;
 
 describe("AnchorClient with ethers", () => {
   const key = Binary.fromHex("11".repeat(32));
   const value = Binary.fromHex("22".repeat(32));
+  const ethFee = 42n;
 
   beforeEach(() => {
     ethersContract = new Contract(DUMMY_ADDRESS, AnchorClient.ABI);
     anchorSpy = vi.fn(async (_anchors: Array<{ key: `0x${string}`; value: `0x${string}` }>) => ({ hash: "0xdeadbeef" } as any));
-    maxAnchorsSpy = vi.fn(async () => 16n);
     // @ts-expect-error override for testing
     ethersContract.anchor = anchorSpy;
-    // @ts-expect-error override for testing
-    ethersContract.maxAnchors = maxAnchorsSpy;
     client = new AnchorClient(ethersContract);
   });
 
@@ -68,13 +66,30 @@ describe("AnchorClient with ethers", () => {
       expect(args[0].key).toBe(new Binary(key).hex);
       expect(args[0].value).toMatch(/^0x0{64}$/);
     });
-  });
 
-  describe("getMaxAnchors", () => {
-    it("coerces bigint to number", async () => {
-      const max = await client.getMaxAnchors();
-      expect(maxAnchorsSpy).toHaveBeenCalledTimes(1);
-      expect(max).toBe(16);
+    it("forwards tx options for ETH payment", async () => {
+      const txOptions: AnchorTxOptions = { value: ethFee };
+
+      await client.anchor([{ key, value }], txOptions);
+
+      expect(anchorSpy).toHaveBeenCalledTimes(1);
+      expect(anchorSpy.mock.calls[0][0]).toEqual([
+        { key: new Binary(key).hex, value: new Binary(value).hex },
+      ]);
+      expect(anchorSpy.mock.calls[0][1]).toEqual(txOptions);
+    });
+
+    it("keeps the key/value overload when tx options are provided as third argument", async () => {
+      const txOptions: AnchorTxOptions = { value: ethFee };
+
+      await client.anchor(key, value, txOptions);
+
+      expect(anchorSpy).toHaveBeenCalledTimes(1);
+      expect(anchorSpy.mock.calls[0][0]).toEqual([
+        { key: new Binary(key).hex, value: new Binary(value).hex },
+      ]);
+      expect(anchorSpy.mock.calls[0][1]).toEqual(txOptions);
     });
   });
+
 });

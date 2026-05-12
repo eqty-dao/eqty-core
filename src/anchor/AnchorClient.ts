@@ -6,6 +6,7 @@ import {
   BASE_SEPOLIA_CHAIN_ID,
   ZERO_HASH
 } from "../constants";
+import type { AnchorTxOptions } from "../types";
 import { ANCHOR_ABI } from "./AnchorABI";
 import { isBinary } from "../utils/bytes"
 
@@ -36,25 +37,26 @@ export default class AnchorClient<T> {
    * anchor method
    */
   async anchor(
-    input: Array<{ key: Uint8Array; value: Uint8Array }>
+    input: Array<{ key: Uint8Array; value: Uint8Array }>,
+    txOptions?: AnchorTxOptions
   ): Promise<T>;
-  async anchor(key: Uint8Array, value: Uint8Array): Promise<T>;
-  async anchor(value: Array<Uint8Array>): Promise<T>;
-  async anchor(value: Uint8Array): Promise<T>;
+  async anchor(key: Uint8Array, value: Uint8Array, txOptions?: AnchorTxOptions): Promise<T>;
+  async anchor(value: Array<Uint8Array>, txOptions?: AnchorTxOptions): Promise<T>;
+  async anchor(value: Uint8Array, txOptions?: AnchorTxOptions): Promise<T>;
   async anchor(
     input: Array<{ key: Uint8Array; value: Uint8Array }> | Array<Uint8Array> | Uint8Array,
-    value?: Uint8Array
+    valueOrTxOptions?: Uint8Array | AnchorTxOptions,
+    txOptions?: AnchorTxOptions
   ): Promise<T> {
-    const anchors = this.convertAnchors(input, value);
-    return await this.contract.anchor(anchors);
-  }
+    const anchorValue = isBinary(input) && isBinary(valueOrTxOptions) ? valueOrTxOptions : undefined;
+    const options = isBinary(valueOrTxOptions) ? txOptions : valueOrTxOptions;
+    const anchors = this.convertAnchors(input, anchorValue);
 
-  /**
-   * Get the maximum number of anchors allowed per transaction
-   */
-  async getMaxAnchors(): Promise<number> {
-    const value = await this.contract.maxAnchors();
-    return Number(value);
+    if (options?.value === undefined) {
+      return await this.contract.anchor(anchors);
+    }
+
+    return await this.contract.anchor(anchors, options);
   }
 
   /**
