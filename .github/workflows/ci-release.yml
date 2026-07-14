@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write  # required for creating GitHub Releases and pushing tags/notes
+  id-token: write
   issues: write    # allow commenting on released issues
   pull-requests: write  # allow commenting on released PRs
 
@@ -54,5 +55,4 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
