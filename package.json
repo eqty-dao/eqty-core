@@ -32,6 +32,10 @@
   ],
   "author": "LTO Network",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eqty-dao/eqty-core.git"
+  },
   "publishConfig": {
     "access": "public"
   },
